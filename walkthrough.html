@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lesson 5: How it works</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #182033; --line: #2a3550; --text: #e7ecf5; --muted: #9aa6bf;
+    --claude: #d97757; --you: #5b9cf5; --exec: #4cbf8a; --warn: #f2c14e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 18px/1.5 -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  .slide { position: absolute; inset: 0; padding: 56px 80px 90px; display: none; flex-direction: column; }
+  .slide.active { display: flex; }
+  h1 { font-size: 44px; margin-bottom: 12px; }
+  h2 { font-size: 32px; margin-bottom: 28px; }
+  .kicker { color: var(--muted); font-size: 15px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px; }
+  .sub { color: var(--muted); font-size: 22px; max-width: 900px; }
+  .center { margin: auto 0; }
+  code, pre { font-family: "SF Mono", Menlo, monospace; }
+  code { background: #232d45; padding: 1px 7px; border-radius: 5px; font-size: .92em; }
+  .row { display: flex; gap: 24px; align-items: stretch; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; flex: 1; }
+  .card h3 { font-size: 21px; margin-bottom: 8px; }
+  .card p, .card li { color: var(--muted); font-size: 17px; }
+  .card ul { padding-left: 20px; }
+  .tag { display: inline-block; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 99px; margin-bottom: 10px; }
+  .t-you { background: rgba(91,156,245,.18); color: var(--you); }
+  .t-exec { background: rgba(76,191,138,.18); color: var(--exec); }
+  .t-claude { background: rgba(217,119,87,.18); color: var(--claude); }
+  .t-warn { background: rgba(242,193,78,.18); color: var(--warn); }
+
+  /* Agent diagram */
+  .diagram { display: grid; grid-template-columns: 1fr 120px 1fr 120px 1fr; align-items: center; margin-top: 10px; }
+  .node { border-radius: 16px; padding: 26px 20px; text-align: center; border: 2px solid; background: var(--panel); }
+  .node .icon { font-size: 40px; }
+  .node b { display: block; font-size: 21px; margin: 6px 0 4px; }
+  .node span { color: var(--muted); font-size: 15px; }
+  .n-you { border-color: var(--you); } .n-exec { border-color: var(--exec); } .n-claude { border-color: var(--claude); }
+  .arrows { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.3; }
+  .arrows .a { font-size: 26px; color: var(--text); }
+
+  /* Steps */
+  .steps { display: flex; flex-direction: column; gap: 12px; }
+  .step { display: grid; grid-template-columns: 46px 170px 1fr; gap: 16px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 13px 18px; }
+  .num { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: #232d45; }
+  .who { font-weight: 600; }
+  .step p { color: var(--muted); font-size: 17px; }
+
+  /* Terminal */
+  .term { background: #0a0d14; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 15px; }
+  .term .bar { background: #1b2131; padding: 8px 14px; display: flex; gap: 7px; }
+  .term .bar i { width: 12px; height: 12px; border-radius: 50%; background: #3a4560; }
+  .term pre { padding: 16px 20px; line-height: 1.55; white-space: pre-wrap; }
+  .c-cmd { color: #e7ecf5; } .c-dim { color: #6b7790; } .c-claude { color: var(--claude); }
+  .c-exec { color: var(--exec); } .c-you { color: var(--you); font-weight: 700; } .c-bad { color: #ef6b6b; }
+  .callout { border-left: 4px solid var(--warn); background: rgba(242,193,78,.08); padding: 14px 18px; border-radius: 0 10px 10px 0; color: var(--text); font-size: 17px; }
+
+  /* Files */
+  .tree { font-family: "SF Mono", Menlo, monospace; font-size: 16px; line-height: 1.9; }
+  .tree .d { color: var(--muted); }
+  .tree .note { color: var(--muted); font-family: -apple-system, sans-serif; font-size: 15px; margin-left: 10px; }
+
+  table { border-collapse: collapse; font-size: 18px; }
+  td, th { padding: 10px 22px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 15px; }
+  .up { color: var(--exec); font-weight: 700; } .down { color: #ef6b6b; font-weight: 700; }
+
+  nav { position: fixed; bottom: 24px; left: 80px; right: 80px; display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: 14px; }
+  .progress { flex: 1; height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .progress div { height: 100%; background: var(--claude); transition: width .25s; }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; font-size: 14px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- 1. Title -->
+<section class="slide">
+  <div class="center">
+    <div class="kicker">AutoGen · Lesson 5</div>
+    <h1>Two AI agents plot stock prices</h1>
+    <p class="sub">Claude writes Python. A second agent runs that code on your Mac. You approve each step by pressing Enter. The result is a chart of NVDA vs TSLA for this year.</p>
+    <p class="sub" style="margin-top:36px;font-size:16px">Use the <code>←</code> <code>→</code> keys or the buttons below to move between slides.</p>
+  </div>
+</section>
+
+<!-- 2. The cast -->
+<section class="slide">
+  <div class="kicker">The big picture</div>
+  <h2>Three players, one conversation</h2>
+  <div class="diagram">
+    <div class="node n-you"><div class="icon">🧑‍💻</div><b>You</b><span>Press Enter to approve<br>each step</span></div>
+    <div class="arrows"><div class="a">⇄</div>approve /<br>show result</div>
+    <div class="node n-exec"><div class="icon">⚙️</div><b>code_executor_agent</b><span>No AI. Runs the code<br>inside <code>coding/</code></span></div>
+    <div class="arrows"><div class="a">⇄</div>code →<br>← output</div>
+    <div class="node n-claude"><div class="icon">✳️</div><b>code_writer_agent</b><span>Claude Opus 5.5.<br>Writes the Python</span></div>
+  </div>
+  <div class="row" style="margin-top:36px">
+    <div class="card"><span class="tag t-claude">Writer</span><p>Never runs anything. It only replies with Python in a <code>```python</code> block and reads the output that comes back.</p></div>
+    <div class="card"><span class="tag t-exec">Executor</span><p>Has no brain. It pulls the code block out of Claude's message, saves it as a <code>.py</code> file and runs it.</p></div>
+    <div class="card"><span class="tag t-you">You</span><p>The safety switch. Nothing runs until you press Enter, because the code runs on your real machine with no sandbox.</p></div>
+  </div>
+</section>
+
+<!-- 3. One run step by step -->
+<section class="slide">
+  <div class="kicker">What happens when you run it</div>
+  <h2>The loop, step by step</h2>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div class="who" style="color:var(--exec)">Executor</div><p>Sends Claude the task: <i>"Today is 2026-10-02. Plot the YTD gain for NVDA and TSLA and save it to a .png file"</i></p></div>
+    <div class="step"><div class="num">2</div><div class="who" style="color:var(--claude)">Claude</div><p>Replies with a Python script that downloads prices with yfinance and draws a chart with matplotlib</p></div>
+    <div class="step"><div class="num">3</div><div class="who" style="color:var(--you)">You</div><p>See the prompt <code>Press enter to skip and use auto-reply…</code>, read the code, and press <b>Enter</b></p></div>
+    <div class="step"><div class="num">4</div><div class="who" style="color:var(--exec)">Executor</div><p>Runs the script in <code>coding/</code> and sends Claude the output (or the error)</p></div>
+    <div class="step"><div class="num">5</div><div class="who" style="color:var(--claude)">Claude</div><p>If there's an error, it sends a fix and you go back to step 3. If it worked, it summarises and says <code>TERMINATE</code></p></div>
+    <div class="step"><div class="num">6</div><div class="who" style="color:var(--you)">You</div><p>Press <b>Enter</b> once more. The chat ends and the chart is in <code>coding/</code></p></div>
+  </div>
+</section>
+
+<!-- 4. Two modes -->
+<section class="slide">
+  <div class="kicker">Same task, two ways</div>
+  <h2>The <code>--with-tools</code> switch</h2>
+  <div class="row">
+    <div class="card">
+      <span class="tag t-claude">python financial_analysis.py</span>
+      <h3>Claude writes everything</h3>
+      <ul>
+        <li>Claude writes its own download code and plotting code from scratch</li>
+        <li>Output: <code>coding/ytd_stock_gains.png</code> (YTD % gain)</li>
+        <li>More freedom, but different code every run</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="tag t-exec">python financial_analysis.py --with-tools</span>
+      <h3>Claude uses the helpers</h3>
+      <ul>
+        <li>The <code>get_stock_prices</code> and <code>plot_stock_prices</code> from <code>stock_tools.py</code> get copied to <code>coding/functions.py</code></li>
+        <li>Claude is told they exist and just calls them: <code>from functions import …</code></li>
+        <li>Output: <code>coding/stock_prices_YTD_plot.png</code> (price lines)</li>
+      </ul>
+    </div>
+  </div>
+  <p class="callout" style="margin-top:28px">The lesson: handing an agent ready-made, tested functions makes it shorter, cheaper and more predictable than letting it write everything.</p>
+</section>
+
+<!-- 5. Files -->
+<section class="slide">
+  <div class="kicker">Where things live</div>
+  <h2>The files</h2>
+  <div class="row">
+    <div class="card tree" style="flex:1.3">
+      <div class="d">autogen-financial-analysis/</div>
+      <div>├─ financial_analysis.py <span class="note">builds the agents and starts the chat</span></div>
+      <div>├─ stock_tools.py <span class="note">the two helper functions</span></div>
+      <div>├─ claude_client.py <span class="note">small fix so ag2 works with Claude</span></div>
+      <div>├─ .env <span class="note">your Anthropic key (gitignored)</span></div>
+      <div>├─ .venv/ <span class="note">installed packages (gitignored)</span></div>
+      <div>└─ coding/ <span class="note">created at runtime: Claude's scripts + charts</span></div>
+    </div>
+    <div class="card">
+      <span class="tag t-warn">Why claude_client.py?</span>
+      <p>ag2 always sends a <code>temperature</code> setting. Claude Opus 5.5 rejects it. This 10-line file removes it before each request. Everything else is ag2's normal Anthropic support.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6. How to run -->
+<section class="slide">
+  <div class="kicker">Try it</div>
+  <h2>Run it: one command at a time</h2>
+  <div class="row">
+    <div class="term" style="flex:1.4">
+      <div class="bar"><i></i><i></i><i></i></div>
+<pre><span class="c-dim"># 1. Set up once, then add your key to .env</span>
+<span class="c-cmd">cd autogen-financial-analysis</span>
+<span class="c-cmd">python3 -m venv .venv && source .venv/bin/activate</span>
+<span class="c-cmd">pip install -r requirements.txt</span>
+<span class="c-cmd">cp .env.example .env</span>
+
+<span class="c-dim"># 2. Run mode 1, then wait for it to finish</span>
+<span class="c-cmd">python financial_analysis.py</span>
+
+<span class="c-dim"># 3. Then run mode 2</span>
+<span class="c-cmd">python financial_analysis.py --with-tools</span>
+
+<span class="c-dim"># 4. Look at the charts</span>
+<span class="c-cmd">open coding/*.png</span></pre>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:16px">
+      <div class="card"><span class="tag t-warn">Gotcha 1</span><p>Type the commands <b>without</b> the grey <code>#</code> lines. By default, interactive zsh doesn't treat <code>#</code> as a comment, so the text after it gets passed to the script as arguments.</p></div>
+      <div class="card"><span class="tag t-warn">Gotcha 2</span><p>Don't paste step 2 and step 3 together. The second line would be sent into the first chat as your reply.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. What you'll see -->
+<section class="slide">
+  <div class="kicker">What it looks like</div>
+  <h2>Inside the chat</h2>
+  <div class="term">
+    <div class="bar"><i></i><i></i><i></i></div>
+<pre><span class="c-exec">code_executor_agent</span> (to code_writer_agent):
+Today is 2026-10-02. Create a plot showing stock gain YTD for NVDA and TSLA…
+
+<span class="c-claude">code_writer_agent</span> (to code_executor_agent):
+```python
+import yfinance as yf
+…
+plt.savefig("ytd_stock_gains.png")
+```
+
+Replying as code_executor_agent. Provide feedback to code_writer_agent. Press enter to skip
+and use auto-reply, or type 'exit' to end the conversation: <span class="c-you">⏎  ← read the code, then press Enter</span>
+
+<span class="c-dim">>>>>>>>> EXECUTING CODE BLOCK 0 (inferred language is python)...</span>
+<span class="c-exec">code_executor_agent</span>: exitcode: 0 (execution succeeded)  YTD gain: NVDA 24.17  TSLA -15.40
+
+<span class="c-claude">code_writer_agent</span>: The plot is saved to ytd_stock_gains.png … <b>TERMINATE</b>
+
+Press enter to skip and use auto-reply… <span class="c-you">⏎  ← Enter once more ends the chat</span>
+Plot saved to …/coding/ytd_stock_gains.png</pre>
+  </div>
+</section>
+
+<!-- 8. Results -->
+<section class="slide">
+  <div class="kicker">Example run (2026-10-02)</div>
+  <h2>The result</h2>
+  <table>
+    <tr><th>Ticker</th><th>First close (Jan 2)</th><th>Latest close</th><th>YTD</th></tr>
+    <tr><td><b>NVDA</b></td><td>$188.41</td><td>$233.95</td><td class="up">+24.17%</td></tr>
+    <tr><td><b>TSLA</b></td><td>$438.07</td><td>$370.59</td><td class="down">−15.40%</td></tr>
+  </table>
+  <p class="sub" style="margin-top:28px;font-size:18px">Your numbers may differ a little. Prices move during the day, and mode 2 stops at yesterday's close because the download skips the end date.</p>
+  <div class="row" style="margin-top:28px">
+    <div class="card"><span class="tag t-you">Check</span><p>Does <code>coding/</code> contain a <code>.png</code> and a <code>.py</code>? You can rerun Claude's script without the agents: <code>cd coding && python ytd_stock_gains.py</code></p></div>
+    <div class="card"><span class="tag t-warn">If something fails</span><p>Errors from Claude's code go back to Claude, which usually sends a fix on the next turn. Type <code>exit</code> at any prompt to stop.</p></div>
+  </div>
+</section>
+
+<nav>
+  <button onclick="go(-1)">← Prev</button>
+  <div class="progress"><div id="bar"></div></div>
+  <span id="count"></span>
+  <button onclick="go(1)">Next →</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll(".slide");
+  let i = 0;
+  function show() {
+    slides.forEach((s, n) => s.classList.toggle("active", n === i));
+    document.getElementById("bar").style.width = ((i + 1) / slides.length * 100) + "%";
+    document.getElementById("count").textContent = (i + 1) + " / " + slides.length;
+  }
+  function go(d) { i = Math.max(0, Math.min(slides.length - 1, i + d)); show(); }
+  document.addEventListener("keydown", e => {
+    if (["ArrowRight", " ", "PageDown"].includes(e.key)) go(1);
+    if (["ArrowLeft", "PageUp"].includes(e.key)) go(-1);
+  });
+  show();
+</script>
+</body>
+</html>
